@@ -1,0 +1,10 @@
+{
+  "name": "MyMenu",
+  "description": "Customizable menu",
+  "uuid": "MyMenu@metaisfabien.gmail.com",
+  "settings-schema": "org.gnome.shell.extensions.mymenu",
+  "gettext-domain": "mymenu",
+  "shell-version": [
+    "3.26.1"
+  ]
+}

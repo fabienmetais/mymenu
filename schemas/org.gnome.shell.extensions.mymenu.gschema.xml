@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schemalist gettext-domain="mymenu">
+
+  <enum id="org.gnome.shell.extensions.mymenu.apps-button-appearance">
+    <value value="0" nick="Icon"/>
+    <value value="1" nick="Text"/>
+    <value value="2" nick="Icon_Text"/>
+    <value value="3" nick="Text_Icon"/>
+  </enum>
+
+  <enum id='org.gnome.shell.extensions.mymenu.apps-button-icon'>
+    <value value="0" nick="Gnome_Apps_Icon"/>
+    <value value="1" nick="System_Icon"/>
+    <value value="2" nick="Custom_Icon"/>
+  </enum>
+
+  <schema path="/org/gnome/shell/extensions/mymenu/" id="org.gnome.shell.extensions.mymenu">
+
+    <key name="apps-button-appearance" enum="org.gnome.shell.extensions.mymenu.apps-button-appearance">
+      <default>'Icon'</default>
+      <summary>Appearance of the apps button.</summary>
+      <description>Appearance of the apps button.</description>
+    </key>
+
+    <key type="b" name="enable-apps-button-arrow">
+      <default>false</default>
+      <summary>Enables the default apps button arrow.</summary>
+      <description>Enables the default apps button arrow.</description>
+    </key>
+
+    <key name="apps-button-icon" enum="org.gnome.shell.extensions.mymenu.apps-button-icon">
+      <default>'Gnome_Apps_Icon'</default>
+      <summary>Icon of the apps button.</summary>
+      <description>Icon of the apps button.</description>
+    </key>
+
+    <key type="s" name="custom-apps-button-icon">
+      <default>''</default>
+      <summary>File path of the custom icon for the apps button.</summary>
+      <description>File path of the custom icon for the apps button.</description>
+    </key>
+
+    <key type="d" name="custom-apps-button-icon-size">
+      <default>22</default>
+      <summary>Size of the icon in percentage.</summary>
+      <description>Size of the icon in percentage.</description>
+    </key>
+
+    <key type="b" name="show-launcher">
+      <default>true</default>
+      <summary>Show apps launcher in the menu</summary>
+      <description>Show apps launcher in the menu.</description>
+    </key>
+
+    <key type="s" name="launcher-data">
+      <default>'[]'</default>
+      <summary>data.</summary>
+      <description>data</description>
+    </key>
+
+    <key type="d" name="launcher-icon-size">
+      <default>32</default>
+      <summary>Size of the icon in percentage.</summary>
+      <description>Size of the icon in percentage.</description>
+    </key>
+  </schema>
+</schemalist>

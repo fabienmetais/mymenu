@@ -1,0 +1,14 @@
+.app-item {
+}
+
+.launcher-grid,
+.launcher-area {
+    min-width: 10rem;
+}
+
+.popup-menu .popup-menu-item.launcher-item {
+     spacing: 0px; }
+.popup-menu .popup-menu-item.launcher-item:ltr {
+    padding: 0em; }
+.popup-menu .popup-menu-item.launcher-item:rtl {
+    padding: 0em; }

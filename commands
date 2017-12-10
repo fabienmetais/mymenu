@@ -1,0 +1,11 @@
+journalctl /usr/bin/gnome-shell -f
+journalctl /usr/bin/gnome-shell-extension-prefs -f
+
+glib-compile-schemas .
+
+gnome-shell-extension-tool --help
+
+gnome-shell-extension-tool -r MyMenu@metaisfabien.gmail
+
+xgettext -k_ -kN_ -o po/mymenu.pot *.js
+msginit --locale=fr -i=po/mymenu.pot -o=po/fr.po
