@@ -47,14 +47,11 @@ var AppsButton = new Lang.Class({
 
         this._appsButtonWidget = new AppsButtonWidget();
         this.actor.add_actor(this._appsButtonWidget.actor);
-
-        this.actor.name = 'panelApplications';
+       // this.actor.name = 'panelApplications';
 
         let widget = this.getWidget();
         widget.hidePanelText();
         widget.hideArrowIcon();
-
-        this.getWidget();
 
         this._settings.connect('changed::apps-button-appearance', Lang.bind(this, this._setAppearance));
 

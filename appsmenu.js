@@ -26,12 +26,12 @@ var AppsMenu = new Lang.Class({
         log('MyMenu::AppsMenu::init');
         this._settings = settings;
         this.parent(sourceActor, arrowAlignment, arrowSide);
+
         this.button = button;
 
         this.currentCategoryItem = null;
 
-        this._createPopup();
-
+        this._createSection();
         this._createLeftBox();
 
         if (this._settings.get_boolean('show-launcher')) {
@@ -45,14 +45,16 @@ var AppsMenu = new Lang.Class({
         log('MyMenu::AppsMenu::/init');
     },
 
-    _createPopup: function () {
-        //PopupMenu
+    _createSection: function () {
         let section = new PopupMenu.PopupMenuSection();
         this.addMenuItem(section);
         this.mainBox = new St.BoxLayout({
             vertical: false,
             style_class: 'main-box'
         });
+
+        this.mainBox._delegate = this.mainBox;
+
         section.actor.add_actor(this.mainBox);
     },
 
@@ -128,14 +130,11 @@ var AppsMenu = new Lang.Class({
     },
 
     _toggleLauncher: function () {
-        log('toggleLauncher');
         if (this._settings.get_boolean('show-launcher')) {
             this._createLauncher();
-            log('_createLauncher');
         } else {
-            this.launcher.actor.destroy();
+            this.launcher.destroy();
             this.launcher = null;
-            log('destroy');
         }
     },
 

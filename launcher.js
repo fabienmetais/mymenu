@@ -2,9 +2,11 @@ const Lang = imports.lang;
 const Gtk = imports.gi.Gtk;
 const St = imports.gi.St;
 const Clutter = imports.gi.Clutter;
-const DND = imports.ui.dnd;
 const GMenu = imports.gi.GMenu;
 const Atk = imports.gi.Atk;
+const DND = imports.ui.dnd;
+const Main = imports.ui.main;
+const PopupMenu = imports.ui.popupMenu;
 const Shell = imports.gi.Shell;
 const appSys = Shell.AppSystem.get_default();
 
@@ -32,6 +34,8 @@ var Launcher = new Lang.Class({
             y_align: St.Align.START,
             style_class: 'launcher-area',
         });
+
+        this.menuManager = new LauncherMenuManager(this);
 
         this._iconeSize = this._settings.get_double('launcher-icon-size');
 
@@ -63,6 +67,15 @@ var Launcher = new Lang.Class({
         log('MyMenu::Launcher::/init');
     },
 
+    destroy: function () {
+        this.actor.destroy();
+    },
+
+    /**
+     * Add the apps from the settings to the launcher
+     *
+     * @private
+     */
     _addApps: function () {
         let launcherData = JSON.parse(this._settings.get_string('launcher-data'));
         for (let index in launcherData) {
@@ -82,6 +95,10 @@ var Launcher = new Lang.Class({
         }
     },
 
+    /**
+     * Load the apps to set it in the _apps array
+     * @private
+     */
     _loadApps: function () {
         this._apps = {};
         let tree = new GMenu.Tree({ menu_basename: 'applications.menu' });
@@ -99,7 +116,12 @@ var Launcher = new Lang.Class({
         }
     },
 
-    // Load menu category data for a single category
+    /**
+     * Load the apps from a category
+     *
+     * @param dir
+     * @private
+     */
     _loadAppsCategory: function(dir) {
         let iter = dir.iter();
         let nextType;
@@ -124,9 +146,11 @@ var Launcher = new Lang.Class({
     },
 
     /**
-     * Drag item
+     * Drag item over the launcher
      *
-     * @param source
+     * Add the drag box over the launcher grid
+     *
+     * @param source source item
      * @param actor
      * @param x
      * @param y
@@ -135,7 +159,6 @@ var Launcher = new Lang.Class({
     handleDragOver: function(source, actor, x, y, time) {
         let app = this.getAppFromSource(source);
 
-        log('drag 1');
         if (app == null) {
             return;
         }
@@ -168,7 +191,9 @@ var Launcher = new Lang.Class({
     },
 
     /**
-     * Drop item
+     * Drop item on the laucher
+     *
+     * Add the apps in the laucher and save the apps grid in the settings
      *
      * @param source
      * @param actor
@@ -177,7 +202,6 @@ var Launcher = new Lang.Class({
      * @param time
      */
     acceptDrop: function (source, actor, x, y, time) {
-        log('acceptDrop');
         let app = this.getAppFromSource(source);
 
         if (app == null) {
@@ -197,28 +221,55 @@ var Launcher = new Lang.Class({
         this._dragBoxPosition = {};
 
         this._saveData();
-        log('/acceptDrop');
     },
 
+    /**
+     * Add apps item on the launcher grid
+     *
+     * @param app
+     * @param x
+     * @param y
+     * @param xIndex
+     * @param yIndex
+     * @private
+     */
     _addAppItem: function (app, x, y, xIndex, yIndex) {
         let item = new LauncherItem(app, this._appsMenu, this._settings);
-        item.setPosition(x, y);
+
+        item.connect('destroy', Lang.bind(this, this._removeAppItem));
+
+        this.menuManager.addMenu(item.menu);
+
+        item.setPosition(x, y, xIndex, yIndex);
         this._appsGrid.add_child(item);
         this._items[xIndex + '-' + yIndex] = item;
     },
 
+    _removeAppItem: function (item) {
+
+        log(item.xIndex + '-' + item.yIndex);
+        delete this._items[item.xIndex + '-' + item.yIndex];
+        this._saveData();
+    },
+
+    /**
+     * Save the apps grid to the settings
+     * @private
+     */
     _saveData: function () {
         let data = {};
         for (let index in this._items) {
             let launcherItem = this._items[index];
-            data[index] = launcherItem.app.get_id();
+            if (launcherItem) {
+                data[index] = launcherItem.app.get_id();
+            }
         }
 
 
         let dataString = JSON.stringify(data);
-        log(dataString);
-
         this._settings.set_string('launcher-data', dataString);
+        log('save data');
+        log(dataString);
     },
 
     getAppFromSource: function (source) {
@@ -291,14 +342,9 @@ var LauncherItem = new Lang.Class({
             accessible_role: Atk.Role.MENU_ITEM
         });
 
-        this.connect('button-press-event', Lang.bind(this, this._onButtonPressEvent));
-        this.connect('button-release-event', Lang.bind(this, this._onButtonReleaseEvent));
-        this.connect('touch-event', Lang.bind(this, this._onTouchEvent));
-        this.connect('key-press-event', Lang.bind(this, this._onKeyPressEvent));
-        this.connect('notify::hover', Lang.bind(this, this._onHoverChanged));
-        this.connect('key-focus-in', Lang.bind(this, this._onKeyFocusIn));
-        this.connect('key-focus-out', Lang.bind(this, this._onKeyFocusOut));
 
+        this.xIndex = null;
+        this.yIndex = null;
 
         this._iconBin = new St.Bin();
         this.add_child(this._iconBin);
@@ -310,12 +356,56 @@ var LauncherItem = new Lang.Class({
         /*this._draggable.connect('drag-begin', Lang.bind(this, this._onDragBegin));
         this._draggable.connect('drag-cancelled', Lang.bind(this, this._onDragCancelled));
         this._draggable.connect('drag-end', Lang.bind(this, this._onDragEnd));*/
+
+        this._createMenu();
+
+        this.connect('button-press-event', Lang.bind(this, this._onButtonPressEvent));
+        this.connect('button-release-event', Lang.bind(this, this._onButtonReleaseEvent));
+        this.connect('touch-event', Lang.bind(this, this._onTouchEvent));
+        this.connect('key-press-event', Lang.bind(this, this._onKeyPressEvent));
+        this.connect('notify::hover', Lang.bind(this, this._onHoverChanged));
+        this.connect('key-focus-in', Lang.bind(this, this._onKeyFocusIn));
+        this.connect('key-focus-out', Lang.bind(this, this._onKeyFocusOut));
+        this.connect('notify::visible', Lang.bind(this, this._onVisibilityChanged));
     },
 
+    _createMenu: function () {
+        this.menu = new PopupMenu.PopupMenu(this, 1.0, St.Side.LEFT);
+        Main.uiGroup.add_actor(this.menu.actor);
+
+        this.menu.actor.hide();
+
+       /* let section = new PopupMenu.PopupMenuSection();
+        this.menu.addMenuItem(section);
+
+        let mainBox = new St.BoxLayout({
+            vertical: true,
+            style_class: 'launcher-apps-menu-main-box'
+        });
+
+        mainBox._delegate = mainBox;
+
+        section.actor.add_actor(mainBox);*/
+
+        let deleteItem = new LauncherMenuItem('delete');//_('Delete'));
+        deleteItem.connect('activate', Lang.bind(this, this._onDeleteClick));
+        //mainBox.add_child(deleteItem.actor);
+
+        this.menu.addMenuItem(deleteItem);
+    },
+
+    _onDeleteClick: function () {
+        this.destroy();
+    },
+
+    _onVisibilityChanged: function () {
+        if (!this.visible)
+            this.menu.close();
+    },
 
     _onButtonPressEvent: function (actor, event) {
         // This is the CSS active state
-        this.actor.add_style_pseudo_class ('active');
+        this.add_style_pseudo_class ('active');
         return Clutter.EVENT_PROPAGATE;
     },
 
@@ -359,13 +449,6 @@ var LauncherItem = new Lang.Class({
         this.setActive(actor.hover);
     },
 
-    activate: function (event) {
-        this.emit('activate', event);
-        this.app.open_new_window(-1);
-        this._appsMenu.button.menu.toggle();
-        this.parent(event);
-    },
-
     setActive: function (active) {
         let activeChanged = active != this.active;
         if (activeChanged) {
@@ -383,15 +466,17 @@ var LauncherItem = new Lang.Class({
                 // in the container
                 this.remove_style_pseudo_class ('active');
             }
-            this.emit('active-changed', active);
+            //this.emit('active-changed', active);
         }
 
 
     },
 
-    setPosition: function (x, y) {
+    setPosition: function (x, y, xIndex, yIndex) {
         this.set_x(x);
         this.set_y(y);
+        this.xIndex = xIndex;
+        this.yIndex = yIndex;
     },
 
     // Update the app icon
@@ -399,9 +484,46 @@ var LauncherItem = new Lang.Class({
         this._iconBin.set_child(this.app.create_icon_texture(iconSize));
     },
     activate: function(event) {
-        this.app.open_new_window(-1);
-        this._appsMenu.button.menu.toggle();
-        this.parent(event);
+        let mouseButton = event.get_button();
+        if (mouseButton ==  Clutter.BUTTON_PRIMARY) {
+            this.app.open_new_window(-1);
+            this._appsMenu.button.menu.toggle();
+        } else if (mouseButton ==  Clutter.BUTTON_SECONDARY) {
+            this.menu.toggle();
+        }
+    }
+});
+
+var LauncherMenuItem = new Lang.Class({
+    Name: 'LauncherMenuItem',
+    Extends: PopupMenu.PopupMenuItem,
+
+    /*_init: function (text) {
+        this.parent(text);
     },
 
+    activate: function(event) {
+        this.parent(event);
+    },*/
+});
+
+
+
+
+// Launcher menu manager
+var LauncherMenuManager = new Lang.Class({
+    Name: 'LauncherMenuManager',
+    Extends: PopupMenu.PopupMenuManager,
+
+    _onMenuSourceEnter: function(menu) {
+        return Clutter.EVENT_PROPAGATE;
+        if (!this._grabHelper.grabbed)
+            return Clutter.EVENT_PROPAGATE;
+
+        if (this._grabHelper.isActorGrabbed(menu.actor))
+            return Clutter.EVENT_PROPAGATE;
+
+        this._changeMenu(menu);
+        return Clutter.EVENT_PROPAGATE;
+    },
 });
