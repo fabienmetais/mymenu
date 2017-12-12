@@ -6,9 +6,15 @@
     min-width: 10rem;
 }
 
+.launcher-item {
+    background-color: aqua;
+}
+
+/*
 .popup-menu .popup-menu-item.launcher-item {
      spacing: 0px; }
 .popup-menu .popup-menu-item.launcher-item:ltr {
     padding: 0em; }
 .popup-menu .popup-menu-item.launcher-item:rtl {
     padding: 0em; }
+*/
