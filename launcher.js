@@ -174,16 +174,31 @@ var Launcher = new Lang.Class({
                 this._dragBox = null;
             }
 
+            log(!source instanceof LauncherItem.LauncherItem);
+            log(source.xIndex +'!='+ xIndex +'||'+ source.yIndex +'!= '+yIndex);
             if (!source instanceof LauncherItem.LauncherItem || source.xIndex != xIndex || source.yIndex != yIndex) {
                 this._moveHoverDragItem(xIndex, yIndex);
-                this._restoreHoverDragItem(this._hoverPosition.x, this._hoverPosition.y);
             }
 
             if (source instanceof LauncherItem.LauncherItem && (source.xIndex != xIndex || source.yIndex != yIndex)) {
                 let x = this._getXGridByIndex(xIndex);
                 let y = this._getYGridByIndex(yIndex);
+
+                delete this._items[source.xIndex][source.yIndex];
+
+                if (this._items[source.xIndex].length == 0) {
+                    delete this._items[source.xIndex];
+                }
+
                 source.setPosition(x, y, xIndex, yIndex);
+
+                if (this._items[xIndex] == undefined) {
+                    this._items[xIndex] = {};
+                }
+
+                this._items[xIndex][yIndex] = source;
             }
+            this._restoreHoverDragItem();
 
 
             this._hoverPosition = {x: xIndex, y: yIndex};
@@ -230,15 +245,28 @@ var Launcher = new Lang.Class({
         if (source instanceof AppsMenu.AppItem) {
             this._addItem(app, x, y, xIndex, yIndex);
         } else if (source instanceof LauncherItem.LauncherItem) {
-            source.actor.show();
+
+            delete this._items[source.xIndex][source.yIndex];
+
+            if (this._items[source.xIndex].length == 0) {
+                delete this._items[source.xIndex];
+            }
+
             let x = this._getXGridByIndex(xIndex);
             let y = this._getYGridByIndex(yIndex);
             source.setPosition(x, y, xIndex, yIndex);
+            source.actor.show();
+
+            if (this._items[xIndex] == undefined) {
+                this._items[xIndex] = {};
+            }
+
+            this._items[xIndex][yIndex] = source;
         }
 
         this._dragBox.destroy();
         this._dragBox = null;
-        this._hoverPosition = {};
+        this._hoverPosition = {x: null, y: null};
 
         this._saveData();
     },
@@ -271,15 +299,15 @@ var Launcher = new Lang.Class({
     },
 
     _moveHoverDragItem: function (xIndex, yIndex) {
-        log(this._items);
         if (this._items[xIndex] != undefined && this._items[xIndex][yIndex] != undefined) {
             let item = this._items[xIndex][yIndex];
+            log('_moveHoverDragItem ' + xIndex + ',' + yIndex + ' -----' + item.get_app_id());
             if (item) {
                 let newYIndex = yIndex + 1;
                 let x = this._getXGridByIndex(xIndex);
                 let y = this._getYGridByIndex(newYIndex);
                 item.setPosition(x, y, xIndex, newYIndex);
-                this._dragMovedItems.push({x: xIndex, y: yIndex});
+                this._dragMovedItems.push({x: xIndex, y: newYIndex});
 
                 this._moveHoverDragItem(xIndex, newYIndex);
 
@@ -289,26 +317,25 @@ var Launcher = new Lang.Class({
         }
     },
 
-    _restoreHoverDragItem: function (xIndex, oldYIndex) {
+    _restoreHoverDragItem: function () {
         for (let index in this._dragMovedItems) {
             let movedItem = this._dragMovedItems[index];
 
-            let currentYIndex = oldYIndex + 1;
+            let oldYIndex = movedItem.y - 1;
 
-            if (movedItem.x == xIndex && movedItem.y == oldYIndex
-                && this._items[xIndex] != undefined && this._items[xIndex][currentYIndex] != undefined) {
-                let item = this._items[xIndex][currentYIndex];
-
-                let x = this._getXGridByIndex(xIndex);
+            if (this._items[movedItem.x] == undefined || this._items[movedItem.x][oldYIndex] == undefined) {
+                let item = this._items[movedItem.x][movedItem.y];
+                log ('_restoreHoverDragItem ' + movedItem.x + ',' + movedItem.y  + ' -----' + item.get_app_id());
+                let x = this._getXGridByIndex(movedItem.x);
                 let y = this._getYGridByIndex(oldYIndex);
-                item.setPosition(x, y, xIndex, oldYIndex);
+                item.setPosition(x, y, movedItem.x, oldYIndex);
 
-                this._items[xIndex][oldYIndex] = item;
-                delete this._items[xIndex][currentYIndex];
+                delete this._items[movedItem.x][movedItem.y];
+                this._items[movedItem.x][oldYIndex] = item;
 
                 this._dragMovedItems.splice(index, 1);
 
-                this._restoreHoverDragItem(xIndex, currentYIndex);
+                this._restoreHoverDragItem();
                 break;
             }
         }
@@ -339,7 +366,7 @@ var Launcher = new Lang.Class({
         }
 
         let dataString = JSON.stringify(data);
-       // this._settings.set_string('launcher-data', dataString);
+        //this._settings.set_string('launcher-data', dataString);
     },
 
     getAppFromSource: function (source) {

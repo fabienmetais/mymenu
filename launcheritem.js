@@ -82,6 +82,7 @@ var LauncherItem = new Lang.Class({
 
     _onDragBegin: function() {
         this.actor.hide();
+        log('start drag '  + this.xIndex +','+ this.yIndex);
         Main.overview.beginItemDrag(this);
     },
 
