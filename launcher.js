@@ -147,6 +147,47 @@ var Launcher = new Lang.Class({
     },
 
     /**
+     * Add apps item on the launcher grid
+     *
+     * @param app
+     * @param x
+     * @param y
+     * @param xIndex
+     * @param yIndex
+     * @private
+     */
+    _addItem: function (app, x, y, xIndex, yIndex) {
+        let item = new LauncherItem.LauncherItem(app, this._appsMenu, this._settings);
+
+        item.connect('delete', Lang.bind(this, this._deleteItem));
+        item.connect('drag-begin', Lang.bind(this, this._onItemDragBegin));
+
+        this.menuManager.addMenu(item.menu);
+
+        item.setPosition(x, y, xIndex, yIndex);
+        this._appsGrid.add_child(item.actor);
+
+        if (this._items[xIndex] == undefined) {
+            this._items[xIndex] = {};
+        }
+
+        this._items[xIndex][yIndex] = item;
+    },
+
+    /**
+     * On drag begin delete item from the grid
+     * @param item
+     * @private
+     */
+    _onItemDragBegin: function (item) {
+        delete this._items[item.xIndex][item.yIndex];
+
+        if (this._items[item.xIndex].length == 0) {
+            delete this._items[item.xIndex];
+        }
+    },
+    
+    /**
      * Drag item over the launcher
      *
      * Add the drag box over the launcher grid
@@ -174,34 +215,16 @@ var Launcher = new Lang.Class({
                 this._dragBox = null;
             }
 
+            this._hoverPosition = {x: xIndex, y: yIndex};
+
             log(!source instanceof LauncherItem.LauncherItem);
             log(source.xIndex +'!='+ xIndex +'||'+ source.yIndex +'!= '+yIndex);
+
             if (!source instanceof LauncherItem.LauncherItem || source.xIndex != xIndex || source.yIndex != yIndex) {
                 this._moveHoverDragItem(xIndex, yIndex);
             }
 
-            if (source instanceof LauncherItem.LauncherItem && (source.xIndex != xIndex || source.yIndex != yIndex)) {
-                let x = this._getXGridByIndex(xIndex);
-                let y = this._getYGridByIndex(yIndex);
-
-                delete this._items[source.xIndex][source.yIndex];
-
-                if (this._items[source.xIndex].length == 0) {
-                    delete this._items[source.xIndex];
-                }
-
-                source.setPosition(x, y, xIndex, yIndex);
-
-                if (this._items[xIndex] == undefined) {
-                    this._items[xIndex] = {};
-                }
-
-                this._items[xIndex][yIndex] = source;
-            }
             this._restoreHoverDragItem();
-
-
-            this._hoverPosition = {x: xIndex, y: yIndex};
         }
 
         if (this._dragBox == null) {
@@ -272,44 +295,41 @@ var Launcher = new Lang.Class({
     },
 
     /**
-     * Add apps item on the launcher grid
+     * Check of the item has been moved
      *
-     * @param app
-     * @param x
-     * @param y
      * @param xIndex
      * @param yIndex
+     *
+     * @returns {boolean}
      * @private
      */
-    _addItem: function (app, x, y, xIndex, yIndex) {
-        let item = new LauncherItem.LauncherItem(app, this._appsMenu, this._settings);
-
-        item.connect('delete', Lang.bind(this, this._deleteItem));
-
-        this.menuManager.addMenu(item.menu);
-
-        item.setPosition(x, y, xIndex, yIndex);
-        this._appsGrid.add_child(item.actor);
-
-        if (this._items[xIndex] == undefined) {
-            this._items[xIndex] = {};
+    _isMovedItem:  function (xIndex, yIndex) {
+        let isMovedItem = false;
+        for (let index in this._dragMovedItems) {
+            let movedItem = this._dragMovedItems[index];
+            if (movedItem.x == xIndex && movedItem.y == yIndex) {
+                isMovedItem = true;
+                break;
+            }
         }
 
-        this._items[xIndex][yIndex] = item;
+        return isMovedItem;
     },
 
     _moveHoverDragItem: function (xIndex, yIndex) {
         if (this._items[xIndex] != undefined && this._items[xIndex][yIndex] != undefined) {
             let item = this._items[xIndex][yIndex];
-            log('_moveHoverDragItem ' + xIndex + ',' + yIndex + ' -----' + item.get_app_id());
-            if (item) {
+
+            if (item && !this._isMovedItem(xIndex, yIndex)) {
                 let newYIndex = yIndex + 1;
+                this._moveHoverDragItem(xIndex, newYIndex);
+
                 let x = this._getXGridByIndex(xIndex);
                 let y = this._getYGridByIndex(newYIndex);
                 item.setPosition(x, y, xIndex, newYIndex);
                 this._dragMovedItems.push({x: xIndex, y: newYIndex});
 
-                this._moveHoverDragItem(xIndex, newYIndex);
+                log('_moveHoverDragItem from:' + xIndex + ',' + yIndex + ' to: '+ xIndex + ',' + newYIndex + '-----' + item.get_app_id());
 
                 this._items[xIndex][newYIndex] = item;
                 delete this._items[xIndex][yIndex];
@@ -322,18 +342,20 @@ var Launcher = new Lang.Class({
             let movedItem = this._dragMovedItems[index];
 
             let oldYIndex = movedItem.y - 1;
-
-            if (this._items[movedItem.x] == undefined || this._items[movedItem.x][oldYIndex] == undefined) {
+            if ((this._hoverPosition.x != movedItem.x || this._hoverPosition.y != oldYIndex)
+                && (this._items[movedItem.x] == undefined || this._items[movedItem.x][oldYIndex] == undefined)) {
                 let item = this._items[movedItem.x][movedItem.y];
-                log ('_restoreHoverDragItem ' + movedItem.x + ',' + movedItem.y  + ' -----' + item.get_app_id());
                 let x = this._getXGridByIndex(movedItem.x);
                 let y = this._getYGridByIndex(oldYIndex);
                 item.setPosition(x, y, movedItem.x, oldYIndex);
+                log ('_restoreHoverDragItem from: ' + movedItem.x + ',' + movedItem.y  + ' to: ' + movedItem.x + ',' + oldYIndex  + '-----' + item.get_app_id());
 
                 delete this._items[movedItem.x][movedItem.y];
                 this._items[movedItem.x][oldYIndex] = item;
 
+                log(JSON.stringify(this._dragMovedItems));
                 this._dragMovedItems.splice(index, 1);
+                log(JSON.stringify(this._dragMovedItems));
 
                 this._restoreHoverDragItem();
                 break;
@@ -366,7 +388,7 @@ var Launcher = new Lang.Class({
         }
 
         let dataString = JSON.stringify(data);
-        //this._settings.set_string('launcher-data', dataString);
+        this._settings.set_string('launcher-data', dataString);
     },
 
     getAppFromSource: function (source) {

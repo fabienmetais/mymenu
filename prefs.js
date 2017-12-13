@@ -2,6 +2,7 @@
 const Lang = imports.lang;
 const GObject = imports.gi.GObject;
 const Gtk = imports.gi.Gtk;
+const Gdk = imports.gi.Gdk;
 
 const ExtensionUtils = imports.misc.extensionUtils;
 const Me = ExtensionUtils.getCurrentExtension();
@@ -11,6 +12,12 @@ const Gettext = imports.gettext.domain(Me.metadata['gettext-domain']);
 const _ = Gettext.gettext;
 
 var ICON_SIZES = [ 16, 24, 32, 40, 48 ];
+var BOX_SIZES = [ 32, 40, 48, 56, 64];
+
+function hexToDec(hex) {
+    return hex.toLowerCase().split('').reduce( (result, ch) =>
+        result * 16 + '0123456789abcdefgh'.indexOf(ch), 0);
+}
 
 /**
  * Notebook widget
@@ -190,40 +197,137 @@ const MenuPage = new Lang.Class({
         launcherFrameBox.add(showLauncherRow);
 
 
-        // launcher icon size
+        /*                       launcher icon size                     */
         let launcherIconSizeRow = new FrameBoxRow();
         let iconSize = this._settings.get_double('launcher-icon-size');
+
         let launcherIconSizeLabel = new Gtk.Label({
             label: _('Icon size'),
             use_markup: true,
-            xalign: 0
+            xalign: 0,
+            hexpand: true
         });
-        let hscale = new Gtk.HScale({
+
+        let launcherIconSizeHscale = new Gtk.HScale({
             adjustment: new Gtk.Adjustment({
-                lower: 1,
-                upper: 64,
+                lower: ICON_SIZES[0],
+                upper: ICON_SIZES[ICON_SIZES.length -1],
                 step_increment: 1,
                 page_increment: 1,
                 page_size: 0
             }),
+            draw_value: false,
             digits: 0,
             round_digits: 0,
             hexpand: true,
             value_pos: Gtk.PositionType.RIGHT
         });
-        hscale.connect('format-value', function(scale, value) { return value.toString() + ' px'; });
+        launcherIconSizeHscale.connect('format-value', function(scale, value) { return value.toString() + ' px'; });
         ICON_SIZES.forEach(function(num) {
-            hscale.add_mark(num, Gtk.PositionType.BOTTOM, num.toString());
+            launcherIconSizeHscale.add_mark(num, Gtk.PositionType.BOTTOM, num.toString());
         });
-        hscale.set_value(iconSize);
-        hscale.connect('value-changed', Lang.bind(this, function(){
-            this._settings.set_double('launcher-icon-size', hscale.get_value());
+        launcherIconSizeHscale.set_value(iconSize);
+
+        let launcherIconSizeValueLabel = new Gtk.Label({
+            label: iconSize + ' px',
+            use_markup: true,
+            xalign: 0,
+        });
+
+        launcherIconSizeHscale.connect('value-changed', Lang.bind(this, function(){
+            let value = launcherIconSizeHscale.get_value();
+            this._settings.set_double('launcher-icon-size', value);
+            launcherIconSizeValueLabel.set_label(value.toString() + ' px');
         }));
 
         launcherIconSizeRow.add(launcherIconSizeLabel);
-        launcherIconSizeRow.add(hscale);
+        launcherIconSizeRow.add(launcherIconSizeHscale);
+        launcherIconSizeRow.add(launcherIconSizeValueLabel);
 
-        launcherFrameBox.add(launcherIconSizeRow)
+        launcherFrameBox.add(launcherIconSizeRow);
+
+        /*                       launcher box size                     */
+        let launcherBoxSizeRow = new FrameBoxRow();
+        let boxSize = this._settings.get_double('launcher-box-size');
+        let launcherBoxSizeLabel = new Gtk.Label({
+            label: _('Box size'),
+            use_markup: true,
+            xalign: 0,
+            hexpand: true
+        });
+
+        let launcherBoxSizeHscale = new Gtk.HScale({
+            adjustment: new Gtk.Adjustment({
+                lower: BOX_SIZES[0],
+                upper: BOX_SIZES[BOX_SIZES.length - 1],
+                step_increment: 1,
+                page_increment: 1,
+                page_size: 0
+            }),
+            draw_value: false,
+            digits: 0,
+            round_digits: 0,
+            hexpand: true,
+            value_pos: Gtk.PositionType.RIGHT
+        });
+        launcherBoxSizeHscale.connect('format-value', function(scale, value) { return value.toString() + ' px'; });
+        BOX_SIZES.forEach(function(num) {
+            launcherBoxSizeHscale.add_mark(num, Gtk.PositionType.BOTTOM, num.toString());
+        });
+        launcherBoxSizeHscale.set_value(boxSize);
+
+        let launcherBoxSizeValueLabel = new Gtk.Label({
+            label: boxSize + ' px',
+            use_markup: true,
+            xalign: 0,
+        });
+
+        launcherBoxSizeHscale.connect('value-changed', Lang.bind(this, function() {
+            let value = launcherBoxSizeHscale.get_value();
+            this._settings.set_double('launcher-box-size', value);
+            launcherBoxSizeValueLabel.set_label(value.toString() + ' px');
+        }));
+
+        launcherBoxSizeRow.add(launcherBoxSizeLabel);
+        launcherBoxSizeRow.add(launcherBoxSizeHscale);
+        launcherBoxSizeRow.add(launcherBoxSizeValueLabel);
+
+        launcherFrameBox.add(launcherBoxSizeRow);
+
+        /*                       launcher box size                     */
+        let launcherBoxColorRow = new FrameBoxRow();
+        let boxColor = this._settings.get_string('launcher-box-background');
+
+        let boxColorArray = boxColor.split('-');
+        let launcherBoxColorLabel = new Gtk.Label({
+            label: _('Default box background'),
+            use_markup: true,
+            xalign: 0,
+            hexpand: true
+        });
+
+        let launcherBoxColorButton = new Gtk.ColorButton({
+            halign: Gtk.Align.END
+        });
+        let color = new Gdk.RGBA();
+        color.red = boxColorArray[0];
+        color.green = boxColorArray[1];
+        color.blue = boxColorArray[2];
+        color.alpha = 1;
+
+        launcherBoxColorButton.set_rgba(color);
+        launcherBoxColorButton.connect("color-set", Lang.bind(this, Lang.bind(this, function(button){
+            let color = button.get_rgba();
+            log(color.red +'-'+ color.green +'-'+ color.blue);
+            this._settings.set_string('launcher-box-background', color.red +'-'+ color.green +'-'+ color.blue);
+        })));
+
+        launcherBoxColorRow.add(launcherBoxColorLabel);
+        launcherBoxColorRow.add(launcherBoxColorButton);
+
+        launcherFrameBox.add(launcherBoxColorRow);
+
+
         this.add(launcherFrameBox);
     }
 });
@@ -252,6 +356,7 @@ function buildPrefsWidget() {
 
     box.add(notebook);
     box.show_all();
+
     log('MyMenu::/buildPrefsWidget');
     return box;
 }

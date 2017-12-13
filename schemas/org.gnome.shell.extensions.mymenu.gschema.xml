@@ -60,8 +60,21 @@
 
     <key type="d" name="launcher-icon-size">
       <default>32</default>
-      <summary>Size of the icon in percentage.</summary>
-      <description>Size of the icon in percentage.</description>
+      <summary>Size of the icon in pixel.</summary>
+      <description>Size of the icon in pixel.</description>
     </key>
+
+    <key type="d" name="launcher-box-size">
+      <default>32</default>
+      <summary>Size of the box in pixel.</summary>
+      <description>Size of the box in pixel.</description>
+    </key>
+
+    <key type="s" name="launcher-box-background">
+      <default>'0.3333333333333333-0.3411764705882353-0.3254901960784314'</default>
+      <summary>Default launcher box background</summary>
+      <description>Default launcher box background</description>
+    </key>
+
   </schema>
 </schemalist>

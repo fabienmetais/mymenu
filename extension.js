@@ -2,7 +2,6 @@ const Me = imports.misc.extensionUtils.getCurrentExtension();
 const Convenience = Me.imports.convenience;
 const AppsButton = Me.imports.appsbutton;
 
-
 const Main = imports.ui.main;
 
 let appsButton;

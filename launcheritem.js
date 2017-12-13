@@ -24,20 +24,14 @@ var LauncherItem = new Lang.Class({
         this.parent({
             style_class: 'launcher-item popup-menu-item',
             reactive: true,
-            // track_hover: true,
-            // can_focus: true,
-            // accessible_role: Atk.Role.MENU_ITEM
         });
-
 
         this.actor.set_y_align(Clutter.ActorAlign.CENTER);
         this.actor.set_x_align(Clutter.ActorAlign.CENTER);
 
-
         this.actor.set_fixed_position_set(true);
         this.actor.set_height(iconSize + (padding * 2));
         this.actor.set_width(iconSize + (padding * 2));
-        //this.actor.set_style('padding: ' + padding + 'px;');
 
         this.xIndex = null;
         this.yIndex = null;
@@ -46,11 +40,10 @@ var LauncherItem = new Lang.Class({
         });
         this.actor.add_child(this._iconBin);
 
-        log('icone size:: ' + iconSize);
         this.updateIconSize(iconSize);
 
-
         this._createMenu();
+        this._setStyle();
 
         this._draggable = DND.makeDraggable(this.actor);
         this.isDraggableApp = true;
@@ -66,6 +59,14 @@ var LauncherItem = new Lang.Class({
         this.actor.connect('key-focus-in', Lang.bind(this, this._onKeyFocusIn));
         this.actor.connect('key-focus-out', Lang.bind(this, this._onKeyFocusOut));
         this.actor.connect('notify::visible', Lang.bind(this, this._onVisibilityChanged));
+
+        this._settings.connect('changed::launcher-box-background', Lang.bind(this, this._setStyle));
+    },
+
+    _setStyle: function () {
+        let backgroundColor = this._settings.get_string('launcher-box-background');
+        let rgb = backgroundColor.split('-');
+        this.actor.set_style('background-color: rgb('+ rgb[0] * 255 +','+ rgb[1] * 255 +','+ rgb[2] * 255 +')');
     },
 
     _createMenu: function () {
@@ -84,6 +85,7 @@ var LauncherItem = new Lang.Class({
         this.actor.hide();
         log('start drag '  + this.xIndex +','+ this.yIndex);
         Main.overview.beginItemDrag(this);
+        this.emit('drag-begin');
     },
 
     _onDragCancelled: function() {
