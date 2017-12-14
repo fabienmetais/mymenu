@@ -7,6 +7,8 @@ const Clutter = imports.gi.Clutter;
 const Shell = imports.gi.Shell;
 const Main = imports.ui.main;
 const DND = imports.ui.dnd;
+const GnomeSession = imports.misc.gnomeSession;
+const LoginManager = imports.misc.loginManager;
 
 const appSys = Shell.AppSystem.get_default();
 
@@ -29,9 +31,12 @@ var AppsMenu = new Lang.Class({
 
         this.button = button;
 
-        this.currentCategoryItem = null;
+        this._currentCategoryItem = null;
 
-        this._createSection();
+        this._session = new GnomeSession.SessionManager();
+
+        this._createMainBox();
+        this._createSessionBox();
         this._createLeftBox();
 
         if (this._settings.get_boolean('show-launcher')) {
@@ -45,17 +50,44 @@ var AppsMenu = new Lang.Class({
         log('MyMenu::AppsMenu::/init');
     },
 
-    _createSection: function () {
+    _createMainBox: function () {
         let section = new PopupMenu.PopupMenuSection();
+        section.actor.style_class = 'mymenu';
         this.addMenuItem(section);
-        this.mainBox = new St.BoxLayout({
+        this._mainBox = new St.BoxLayout({
             vertical: false,
-            style_class: 'main-box'
+            style_class: 'main-box',
         });
 
-        this.mainBox._delegate = this.mainBox;
+        this._mainBox._delegate = this._mainBox;
+        section.actor.add_actor(this._mainBox);
 
-        section.actor.add_actor(this.mainBox);
+        this._mainBoxKeyPressId = this._mainBox.connect('key-press-event', Lang.bind(this, this._onMainBoxKeyPress));
+    },
+
+    _createSessionBox: function () {
+        this._sessionBox = new St.BoxLayout({
+            style_class: 'session-box',
+            vertical: true,
+            y_align: Clutter.ActorAlign.END,
+            //y_align: Clutter.ActorAlign.CENTER,
+            //y_align: Clutter.ActorAlign.START,
+        });
+
+        // Add session buttons to menu
+        let logout = new LogoutButton(this);
+        this._sessionBox.add_child(logout.actor);
+
+        let lock = new LockButton(this);
+        this._sessionBox.add_child(lock.actor);
+
+        let suspend = new SuspendButton(this);
+        this._sessionBox.add_child(suspend.actor);
+
+        let power = new PowerButton(this);
+        this._sessionBox.add_child(power.actor);
+
+        this._mainBox.add_child(this._sessionBox);
     },
 
     /**
@@ -72,8 +104,8 @@ var AppsMenu = new Lang.Class({
         this.appsScrollBox = new St.ScrollView({
             x_fill: true,
             y_fill: false,
-            y_align: St.Align.START,
-            style_class: 'apps-menu vfade left-scroll-area'
+            y_align: Clutter.ActorAlign.START,
+            style_class: 'apps-box vfade left-scroll-area'
         });
 
         this.appsScrollBox.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
@@ -92,10 +124,10 @@ var AppsMenu = new Lang.Class({
         this.leftBox.add(this.appsScrollBox, {
             expand: true,
             x_fill: true, y_fill: true,
-            y_align: St.Align.START
+            y_align: Clutter.ActorAlign.START
         });
 
-        this.mainBox.add(this.leftBox, {
+        this._mainBox.add(this.leftBox, {
             expand: true,
             x_fill: true,
             y_fill: true
@@ -118,10 +150,10 @@ var AppsMenu = new Lang.Class({
             expand: true,
             x_fill: true,
             y_fill: true,
-            y_align: St.Align.START
+            y_align: Clutter.ActorAlign.START
         });
 
-        this.mainBox.add(this.launcherBox, {
+        this._mainBox.add(this.launcherBox, {
             expand: true,
             x_fill: true,
             y_fill: true
@@ -188,17 +220,50 @@ var AppsMenu = new Lang.Class({
     },
 
     selectCategory: function (categoryItem) {
-        if (this.currentCategoryItem != null) {
-            this.currentCategoryItem.appsBox.hide();
+        if (this._currentCategoryItem != null) {
+            this._currentCategoryItem.appsBox.hide();
         }
 
-        if (this.currentCategoryItem != null && this.currentCategoryItem.getId() == categoryItem.getId()) {
+        if (this._currentCategoryItem != null && this._currentCategoryItem.getId() == categoryItem.getId()) {
             categoryItem.appsBox.hide();
-            this.currentCategoryItem = null;
+            this._currentCategoryItem = null;
         } else {
             categoryItem.appsBox.show();
-            this.currentCategoryItem = categoryItem;
+            this._currentCategoryItem = categoryItem;
         }
+    },
+
+
+    // Handle key press events on the mainBox to support the "type-away-feature"
+    _onMainBoxKeyPress: function(mainBox, event) {
+        let symbol = event.get_key_symbol();
+        let key = event.get_key_unicode();
+
+        switch (symbol) {
+            case Clutter.KEY_BackSpace:
+            case Clutter.KEY_Tab:
+            case Clutter.KEY_KP_Tab:
+            case Clutter.Up:
+            case Clutter.KP_Up:
+            case Clutter.Down:
+            case Clutter.KP_Down:
+            case Clutter.Left:
+            case Clutter.KP_Left:
+            case Clutter.Right:
+            case Clutter.KP_Right:
+                return Clutter.EVENT_PROPAGATE;
+            default:
+        }
+        return Clutter.EVENT_PROPAGATE;
+    },
+
+    destroy: function () {
+        if (this._mainBoxKeyPressId > 0) {
+            this._mainBox.disconnect(this._mainBoxKeyPressId);
+            this._mainBoxKeyPressId = 0;
+        }
+
+        parent();
     }
 });
 
@@ -387,5 +452,110 @@ var AppItem = new Lang.Class({
     // Update the app icon in the menu
     _updateIcon: function() {
         this._iconBin.set_child(this.app.create_icon_texture(APPLICATION_ICON_SIZE));
+    }
+});
+
+
+
+/**
+ * A base class for custom session buttons.
+ */
+var SessionButton = new Lang.Class({
+    Name: 'SessionButton',
+
+    _init: function(appsMenu, accessible_name, icon_name) {
+        this._appsMenu = appsMenu;
+        this.actor = new St.Button({
+            reactive: true,
+            can_focus: true,
+            track_hover: true,
+            accessible_name: accessible_name,
+            style_class: 'system-menu-action',
+        });
+        this.actor.child = new St.Icon({ icon_name: icon_name });
+        this.actor.connect('clicked', Lang.bind(this, this._onClick));
+        this.actor.connect('notify::hover', Lang.bind(this, this._onHover));
+    },
+
+    _onClick: function() {
+        this._appsMenu.toggle();
+        this.activate();
+    },
+
+    activate: function() {
+        // Button specific action
+    },
+
+    _onHover: function() {
+        // TODO: implement tooltips
+    }
+});
+
+// Power Button
+var PowerButton = new Lang.Class({
+    Name: 'PowerButton',
+    Extends: SessionButton,
+
+    // Initialize the button
+    _init: function(appsMenu) {
+        this.parent(appsMenu, _("Power Off"), 'system-shutdown-symbolic');
+    },
+
+    // Activate the button (Shutdown)
+    activate: function() {
+        this._appsMenu._session.ShutdownRemote(0);
+    }
+});
+
+// Logout Button
+var LogoutButton = new Lang.Class({
+    Name: 'LogoutButton',
+    Extends: SessionButton,
+
+    // Initialize the button
+    _init: function(appsMenu) {
+        this.parent(appsMenu, _("Log Out"), 'application-exit-symbolic');
+    },
+
+    // Activate the button (Logout)
+    activate: function() {
+        this._appsMenu._session.LogoutRemote(0);
+    }
+});
+
+// Suspend Button
+var SuspendButton = new Lang.Class({
+    Name: 'SuspendButton',
+    Extends: SessionButton,
+
+    // Initialize the button
+    _init: function(appsMenu) {
+        this.parent(appsMenu, _("Suspend"), 'media-playback-pause-symbolic');
+    },
+
+    // Activate the button (Suspend the system)
+    activate: function() {
+        let loginManager = LoginManager.getLoginManager();
+        loginManager.canSuspend(Lang.bind(this, function(result) {
+            if (result) {
+                loginManager.suspend();
+            }
+        }));
+    }
+});
+
+// Lock Screen Button
+var LockButton = new Lang.Class({
+    Name: 'LockButton',
+    Extends: SessionButton,
+
+    // Initialize the button
+    _init: function(appsMenu) {
+        this.parent(appsMenu, _("Lock"), 'changes-prevent-symbolic');
+    },
+
+    // Activate the button (Lock the screen)
+    activate: function() {
+        Main.screenShield.lock(true);
     }
 });

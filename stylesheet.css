@@ -1,11 +1,11 @@
-.app-item {
+.mymenu .main-box{
+    height: 38em;
 }
 
 .launcher-grid,
 .launcher-area {
     min-width: 10rem;
 }
-
 
 /*
 .popup-menu .popup-menu-item.launcher-item {

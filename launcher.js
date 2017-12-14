@@ -470,13 +470,13 @@ var LauncherMenuManager = new Lang.Class({
 
     _onMenuSourceEnter: function(menu) {
         return Clutter.EVENT_PROPAGATE;
-        if (!this._grabHelper.grabbed)
+        /*if (!this._grabHelper.grabbed)
             return Clutter.EVENT_PROPAGATE;
 
         if (this._grabHelper.isActorGrabbed(menu.actor))
             return Clutter.EVENT_PROPAGATE;
-
         this._changeMenu(menu);
         return Clutter.EVENT_PROPAGATE;
+*/
     },
 });
