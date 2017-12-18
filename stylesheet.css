@@ -1,10 +1,13 @@
 .mymenu .main-box{
-    height: 38em;
+    max-height: 560px;
 }
 
 .launcher-grid,
 .launcher-area {
     min-width: 10rem;
+}
+
+.launcher-area {
 }
 
 /*

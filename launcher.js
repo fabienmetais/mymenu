@@ -35,6 +35,22 @@ var Launcher = new Lang.Class({
             style_class: 'launcher-area',
         });
 
+        this.actor.connect('scroll_event', Lang.bind(this, function() {
+
+            let scrollAdj = this.actor.get_vscroll_bar().get_adjustment();
+            let scrollAllocBox = this.actor.get_allocation_box();
+            let a = this.actor.get_vscroll_bar().get_allocation_box();
+            let currentScroll = scrollAdj.get_value();
+            let contentHeight = scrollAdj.upper;
+            let boxHeight = scrollAllocBox.y2 - scrollAllocBox.y1;
+
+            log('page size: ' + scrollAdj.page_size);
+            log('scroll: '+ currentScroll + ' / ' + contentHeight);
+            log ('height: ' + this.actor.get_height() + ' --- ' + this.actor.get_vscroll_bar().get_height());
+            log (scrollAllocBox.y1 + ' -- ' + scrollAllocBox.y2);
+            log (a.y1 + ' -- ' + a.y2);
+        }));
+
         this.menuManager = new LauncherMenuManager(this);
 
         this._iconeSize = this._settings.get_double('launcher-icon-size');
@@ -180,6 +196,9 @@ var Launcher = new Lang.Class({
      * @private
      */
     _onItemDragBegin: function (item) {
+        //let padding = this._getGridSize() + COL_SPACING;
+        //this.actor.set_style('padding-bottom: ' + padding + 'px');
+
         delete this._items[item.xIndex][item.yIndex];
 
         if (this._items[item.xIndex].length == 0) {
@@ -205,10 +224,11 @@ var Launcher = new Lang.Class({
             return;
         }
 
-        x = this._getXGrid(x);
-        y = this._getYGrid(y);
-        let xIndex = this._getXIndex(x);
-        let yIndex = this._getYIndex(y);
+        let xGrid = this._getXGrid(x);
+        let yGrid = this._getYGrid(y);
+        let xIndex = this._getXIndex(xGrid);
+        let yIndex = this._getYIndex(yGrid);
+
         if (this._hoverPosition.x != xIndex || this._hoverPosition.y != yIndex) {
             if (this._dragBox != null) {
                 this._dragBox.destroy();
@@ -217,9 +237,6 @@ var Launcher = new Lang.Class({
 
             this._hoverPosition = {x: xIndex, y: yIndex};
 
-            log(!source instanceof LauncherItem.LauncherItem);
-            log(source.xIndex +'!='+ xIndex +'||'+ source.yIndex +'!= '+yIndex);
-
             if (!source instanceof LauncherItem.LauncherItem || source.xIndex != xIndex || source.yIndex != yIndex) {
                 this._moveHoverDragItem(xIndex, yIndex);
             }
@@ -227,18 +244,47 @@ var Launcher = new Lang.Class({
             this._restoreHoverDragItem();
         }
 
+        let size = this._getGridSize();
         if (this._dragBox == null) {
-            let size = this._getGridSize();
             this._dragBox = new St.BoxLayout({
                 fixed_position_set : true,
-                fixed_x: x,
-                fixed_y: y,
+                fixed_x: xGrid,
+                fixed_y: yGrid,
                 style_class: 'popup-menu-item selected',
                 height: size,
                 width: size
             });
 
             this._appsGrid.add_actor(this._dragBox);
+
+        }
+
+        /**
+         * Move the scroll to follow the drag box
+         */
+        let scrollAdj = this.actor.get_vscroll_bar().get_adjustment();
+        let scrollAllocBox = this.actor.get_allocation_box();
+        let currentScroll = scrollAdj.get_value();
+        let contentHeight = scrollAdj.upper;
+        let boxHeight = scrollAllocBox.y2 - scrollAllocBox.y1;
+        //let maxScroll = contentHeight - boxHeight;
+
+        let scroll = currentScroll;
+
+        if (yGrid < currentScroll) {
+            scroll = yGrid;
+        } else if (yGrid >= currentScroll + boxHeight) {
+            scroll = yGrid - (boxHeight / 2);
+        }
+
+        if (currentScroll != scroll) {
+            scrollAdj.set_value(scroll);
+        }
+
+        if (contentHeight - (yGrid + size) <= size) {
+            scrollAllocBox.set_style('padding-bottom: ' + size/2 +'px;');
+        } else {
+            scrollAllocBox.set_style('padding-bottom: 0px;');
         }
     },
 
@@ -290,6 +336,7 @@ var Launcher = new Lang.Class({
         this._dragBox.destroy();
         this._dragBox = null;
         this._hoverPosition = {x: null, y: null};
+        //this.actor.set_style('padding-bottom: 0px')
 
         this._saveData();
     },
@@ -317,7 +364,9 @@ var Launcher = new Lang.Class({
     },
 
     _moveHoverDragItem: function (xIndex, yIndex) {
+        log('_moveHoverDragItem ' + xIndex + ',' + yIndex);
         if (this._items[xIndex] != undefined && this._items[xIndex][yIndex] != undefined) {
+            log('_moveHoverDragItem 21');
             let item = this._items[xIndex][yIndex];
 
             if (item && !this._isMovedItem(xIndex, yIndex)) {
@@ -353,9 +402,7 @@ var Launcher = new Lang.Class({
                 delete this._items[movedItem.x][movedItem.y];
                 this._items[movedItem.x][oldYIndex] = item;
 
-                log(JSON.stringify(this._dragMovedItems));
                 this._dragMovedItems.splice(index, 1);
-                log(JSON.stringify(this._dragMovedItems));
 
                 this._restoreHoverDragItem();
                 break;
@@ -369,6 +416,7 @@ var Launcher = new Lang.Class({
         if (this._items[item.xIndex].length == 0) {
             delete this._items[item.xIndex];
         }
+
         this._saveData();
     },
 

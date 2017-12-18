@@ -26,7 +26,6 @@ function disable() {
 
     Main.panel.menuManager.removeMenu(appsButton.menu);
     Main.panel.statusArea['mymenu-apps-button'] = null;
-
     appsButton.destroy();//remove the button
     log('MyMenu::/disable');
 }
