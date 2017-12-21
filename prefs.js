@@ -12,7 +12,7 @@ const Gettext = imports.gettext.domain(Me.metadata['gettext-domain']);
 const _ = Gettext.gettext;
 
 var ICON_SIZES = [ 16, 24, 32, 40, 48 ];
-var BOX_SIZES = [ 32, 40, 48, 56, 64];
+var BOX_SIZES = [ 32, 40, 48, 56, 64, 76, 88, 100];
 
 function hexToDec(hex) {
     return hex.toLowerCase().split('').reduce( (result, ch) =>
@@ -294,13 +294,33 @@ const MenuPage = new Lang.Class({
 
         launcherFrameBox.add(launcherBoxSizeRow);
 
-        /*                       launcher box size                     */
+
+        /*                       launcher box background                     */
+        let showLauncherBoxBackgroundRow = new FrameBoxRow();
+        let showLauncherBoxBackgroundLabel = new Gtk.Label({
+            label: _("Show item background"),
+            use_markup: true,
+            xalign: 0,
+            hexpand: true
+        });
+
+        let showLauncherBoxBackgroundSwitch = new Gtk.Switch({ halign: Gtk.Align.END });
+        showLauncherBoxBackgroundSwitch.set_active(this._settings.get_boolean('show-launcher-box-background'));
+        showLauncherBoxBackgroundSwitch.connect('notify::active', Lang.bind(this, function(check) {
+            this._settings.set_boolean('show-launcher-box-background', check.get_active());
+        }));
+
+        showLauncherBoxBackgroundRow.add(showLauncherBoxBackgroundLabel);
+        showLauncherBoxBackgroundRow.add(showLauncherBoxBackgroundSwitch);
+        launcherFrameBox.add(showLauncherBoxBackgroundRow);
+
+        /*                       launcher box background                     */
         let launcherBoxColorRow = new FrameBoxRow();
         let boxColor = this._settings.get_string('launcher-box-background');
 
         let boxColorArray = boxColor.split('-');
         let launcherBoxColorLabel = new Gtk.Label({
-            label: _('Default box background'),
+            label: _('Default item background'),
             use_markup: true,
             xalign: 0,
             hexpand: true

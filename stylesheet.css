@@ -2,16 +2,23 @@
     height: 520px;
 }
 
+.mymenu .session-box {
+ margin-left: 10px;
+}
+
+.mymenu .launcher-box {
+    margin-left: 10px;
+}
+
 .launcher-grid {
 }
 
-.launcher-box {
-}
 
 .launcher-area {
 }
 
 /*
+
 .popup-menu .popup-menu-item.launcher-item {
      spacing: 0px; }
 .popup-menu .popup-menu-item.launcher-item:ltr {

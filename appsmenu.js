@@ -29,6 +29,7 @@ var AppsMenu = new Lang.Class({
         this._settings = settings;
         this.parent(sourceActor, arrowAlignment, arrowSide);
 
+        this.launcher = null;
         this.button = button;
 
         this._currentCategoryItem = null;
@@ -70,8 +71,6 @@ var AppsMenu = new Lang.Class({
             style_class: 'session-box',
             vertical: true,
             y_align: Clutter.ActorAlign.END,
-            //y_align: Clutter.ActorAlign.CENTER,
-            //y_align: Clutter.ActorAlign.START,
         });
 
         // Add session buttons to menu
@@ -109,14 +108,6 @@ var AppsMenu = new Lang.Class({
         });
 
         this.appsScrollBox.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC);
-
-        /*let vscroll = this.appsScrollBox.get_vscroll_bar();
-        vscroll.connect('scroll-start', Lang.bind(this, function() {
-            this.menu.passEvents = true;
-        }));
-        vscroll.connect('scroll-stop', Lang.bind(this, function() {
-            this.menu.passEvents = false;
-        }));*/
 
         this.categoriesBox = new St.BoxLayout({ vertical: true });
         this.appsScrollBox.add_actor(this.categoriesBox);

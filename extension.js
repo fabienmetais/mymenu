@@ -16,7 +16,6 @@ function enable() {
     log('MyMenu::enable');
     settings = Convenience.getSettings(Me.metadata['settings-schema']);
     appsButton = new AppsButton.AppsButton(settings);
-
     Main.panel.addToStatusArea('mymenu-apps-button', appsButton, 0, 'left');
     log('MyMenu::/enable');
 }

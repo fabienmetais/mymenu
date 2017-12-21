@@ -70,10 +70,18 @@
       <description>Size of the box in pixel.</description>
     </key>
 
+
+    <key type="b" name="show-launcher-box-background">
+      <default>true</default>
+      <summary>Show the background of the launcher item</summary>
+      <description>Show the background of the launcher item.</description>
+    </key>
+
+
     <key type="s" name="launcher-box-background">
       <default>'0.3333333333333333-0.3411764705882353-0.3254901960784314'</default>
-      <summary>Default launcher box background</summary>
-      <description>Default launcher box background</description>
+      <summary>Default launcher item background</summary>
+      <description>Default launcher item background.</description>
     </key>
 
   </schema>

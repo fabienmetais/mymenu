@@ -1,16 +1,18 @@
+
 const Lang = imports.lang;
 const PopupMenu = imports.ui.popupMenu;
 const Clutter = imports.gi.Clutter;
 const DND = imports.ui.dnd;
 const Main = imports.ui.main;
 const St = imports.gi.St;
+const Signals = imports.signals;
 
 const PADDING = 30;
 
 // Launcher item class
 var LauncherItem = new Lang.Class({
     Name: 'LauncherItem',
-    Extends: PopupMenu.PopupBaseMenuItem,
+    /*Extends: PopupMenu.PopupBaseMenuItem,*/
 
     // Initialize menu item
     _init: function (app, appsMenu, settings) {
@@ -19,28 +21,63 @@ var LauncherItem = new Lang.Class({
         this.app = app;
 
         let iconSize = this._settings.get_double('launcher-icon-size');
-
-        let padding = PADDING;
+/*
         this.parent({
-            style_class: 'launcher-item popup-menu-item',
+            style_class: 'launcher-item',
             reactive: true,
+        });*/
+
+        let boxSize = this._settings.get_double('launcher-box-size');
+        let size = Math.max(boxSize, iconSize);
+        this.actor = new St.BoxLayout({
+            fixed_position_set : true,
+            style_class: 'launcher-item',
+            height: size,
+            width: size,
+            reactive: true,
+            x_expand: true,
+            y_expand: true,
+            vertical: true,
+            style: 'padding-left: 20px'
         });
 
-        this.actor.set_y_align(Clutter.ActorAlign.CENTER);
-        this.actor.set_x_align(Clutter.ActorAlign.CENTER);
+        this.actor._delegate = this;
 
-        this.actor.set_fixed_position_set(true);
-        this.actor.set_height(iconSize + (padding * 2));
-        this.actor.set_width(iconSize + (padding * 2));
+       /* this.actor.set_fixed_position_set(true);
+
+        this.actor.set_height(size);
+        this.actor.set_width(size);*/
 
         this.xIndex = null;
         this.yIndex = null;
 
         this._iconBin = new St.Bin({
+          //  style_class: 'icon',
         });
-        this.actor.add_child(this._iconBin);
+
+        this.actor.add(this._iconBin, {
+            expand: true,
+            x_fill: true,
+            y_fill: true,
+            y_align: St.Align.MIDDLE,
+            x_align: St.Align.MIDDLE,
+        });
 
         this.updateIconSize(iconSize);
+
+        this.label = new St.Label({
+            text: this.app.get_name(),
+            x_align: Clutter.ActorAlign.CENTER,
+            y_expand: true,
+        });
+
+        this.actor.add(this.label, {
+            expand: true,
+            x_fill: true,
+            y_fill: true,
+            y_align: St.Align.MIDDLE,
+            x_align: St.Align.MIDDLE,
+        });
 
         this._createMenu();
         this._setStyle();
@@ -61,12 +98,24 @@ var LauncherItem = new Lang.Class({
         this.actor.connect('notify::visible', Lang.bind(this, this._onVisibilityChanged));
 
         this._settings.connect('changed::launcher-box-background', Lang.bind(this, this._setStyle));
+        this._settings.connect('changed::show-launcher-box-background', Lang.bind(this, this._setStyle));
+
     },
 
+    _onStyleChanged: function (actor) {
+        this._spacing = 0;
+    },
     _setStyle: function () {
-        let backgroundColor = this._settings.get_string('launcher-box-background');
-        let rgb = backgroundColor.split('-');
-        this.actor.set_style('background-color: rgb('+ rgb[0] * 255 +','+ rgb[1] * 255 +','+ rgb[2] * 255 +')');
+
+        let style = '';
+        let showBackgroundColor = this._settings.get_boolean('show-launcher-box-background');
+        if (showBackgroundColor) {
+            let backgroundColor = this._settings.get_string('launcher-box-background');
+            let rgb = backgroundColor.split('-');
+            style += 'background-color: rgb('+ rgb[0] * 255 +','+ rgb[1] * 255 +','+ rgb[2] * 255 +')';
+        }
+
+        this.actor.set_style(style);
     },
 
     _createMenu: function () {
@@ -83,7 +132,6 @@ var LauncherItem = new Lang.Class({
 
     _onDragBegin: function() {
         this.actor.hide();
-        log('start drag '  + this.xIndex +','+ this.yIndex);
         Main.overview.beginItemDrag(this);
         this.emit('drag-begin');
     },
@@ -218,6 +266,11 @@ var LauncherItem = new Lang.Class({
         this._iconBin.set_child(this.app.create_icon_texture(iconSize));
     },
 
+    updateSize: function (boxSize) {
+        this.actor.set_height(boxSize);
+        this.actor.set_width(boxSize);
+    },
+
     activate: function(event) {
         let mouseButton = event.get_button();
         if (mouseButton == Clutter.BUTTON_PRIMARY) {
@@ -228,7 +281,7 @@ var LauncherItem = new Lang.Class({
         }
     }
 });
-
+Signals.addSignalMethods(LauncherItem.prototype);
 
 var LauncherMenuItem = new Lang.Class({
     Name: 'LauncherMenuItem',

@@ -24,14 +24,13 @@ var Launcher = new Lang.Class({
         this._settings = settings;
         this._appsMenu = appsMenu;
 
-        this._items = {};
+        this._items = [];
         this._dragMovedItems = [];
         this._apps = {};
 
-        this._iconeSize = this._settings.get_double('launcher-icon-size');
-
-        let size = this._getGridSize();
-
+        this._iconSize = this._settings.get_double('launcher-icon-size');
+        this._boxSize = Math.max(this._iconSize, this._settings.get_double('launcher-box-size'));
+        let boxSize = this._getBoxSize();
         this.actor = new St.BoxLayout({
             vertical: true,
             style_class: 'launcher-box',
@@ -70,11 +69,9 @@ var Launcher = new Lang.Class({
             x_expand: true,
             y_expand: true,
             reactive: true,
-            style: 'min-width: ' + size + 'px'
+            style: 'min-width: ' + boxSize + 'px'
         });
 
-
-        log ('size :::: ' + size);
         this._grid._delegate = this;
 
         let box = new St.BoxLayout({
@@ -82,17 +79,15 @@ var Launcher = new Lang.Class({
             x_expand: true,
             y_expand: true,
         });
-
         box.add_actor(this._grid);
-
         this._scrollView.add_actor(box);
-
-        //this._scrollView.add_actor(this._grid);
 
         this._loadApps();
         this._addApps();
 
         this._settings.connect('changed::launcher-icon-size', Lang.bind(this, this._updateItemsIconSize));
+        this._settings.connect('changed::launcher-box-size', Lang.bind(this, this._updateItemsSize));
+
         log('MyMenu::Launcher::/init');
     },
 
@@ -188,7 +183,7 @@ var Launcher = new Lang.Class({
     _addItem: function (app, x, y, xIndex, yIndex) {
         let item = new LauncherItem.LauncherItem(app, this._appsMenu, this._settings);
 
-        item.connect('delete', Lang.bind(this, this._deleteItem));
+        item.connect('delete', Lang.bind(this, this._onDeleteItem));
         item.connect('drag-begin', Lang.bind(this, this._onItemDragBegin));
 
         this.menuManager.addMenu(item.menu);
@@ -196,11 +191,7 @@ var Launcher = new Lang.Class({
         item.setPosition(x, y, xIndex, yIndex);
         this._grid.add_child(item.actor);
 
-        if (this._items[xIndex] == undefined) {
-            this._items[xIndex] = {};
-        }
-
-        this._items[xIndex][yIndex] = item;
+        this._items.push(item);
     },
 
     /**
@@ -210,11 +201,26 @@ var Launcher = new Lang.Class({
      * @private
      */
     _onItemDragBegin: function (item) {
-        delete this._items[item.xIndex][item.yIndex];
+        this._deleteItem(item);
+    },
 
-        if (!this._items[item.xIndex].length) {
-            delete this._items[item.xIndex];
+    _deleteItem: function(xIndex, yIndex) {
+        for (let i = 0;i < this._items.length;i++) {
+            if (this._items[i].xIndex ==  xIndex && this._items[i].yIndex ==  yIndex) {
+                delete this._items[i];
+                break;
+            }
         }
+    },
+
+    _getItem: function (xIndex, yIndex) {
+        for (let i = 0;i < this._items.length;i++) {
+            if (this._items[i].xIndex ==  xIndex && this._items[i].yIndex ==  yIndex) {
+                return this._items[i];
+            }
+        }
+
+        return null;
     },
     
     /**
@@ -243,7 +249,8 @@ var Launcher = new Lang.Class({
         if (this._hoverPosition.x != xIndex || this._hoverPosition.y != yIndex) {
             this._hoverPosition = {x: xIndex, y: yIndex};
 
-            if (!source instanceof LauncherItem.LauncherItem || source.xIndex != xIndex || source.yIndex != yIndex) {
+            if (source instanceof AppsMenu.AppItem || (source instanceof LauncherItem.LauncherItem
+                && (source.xIndex != xIndex || source.yIndex != yIndex))) {
                 this._moveHoverDragItem(xIndex, yIndex);
             }
 
@@ -256,7 +263,7 @@ var Launcher = new Lang.Class({
                 this._togglePaddingBoxs(xIndex, yIndex, lastXIndex, lastYIndex);
 
                 if (this._dragBox == null) {
-                    let size = this._getGridSize();
+                    let size = this._getBoxSize();
                     this._dragBox = new St.BoxLayout({
                         fixed_position_set : true,
                         fixed_x: xGrid,
@@ -280,7 +287,7 @@ var Launcher = new Lang.Class({
     },
 
     _togglePaddingBoxs: function (xIndex, yIndex, lastXIndex, lastYIndex) {
-        let size = this._getGridSize();
+        let size = this._getBoxSize();
         //Add one line after the last if it hover it
         if (this._bottomPaddingBox != null && yIndex < lastYIndex) {
             this._bottomPaddingBox.destroy();
@@ -350,21 +357,19 @@ var Launcher = new Lang.Class({
         if (source instanceof AppsMenu.AppItem) {
             this._addItem(app, x, y, xIndex, yIndex);
         } else if (source instanceof LauncherItem.LauncherItem) {
-
             let x = this._getXGridByIndex(xIndex);
             let y = this._getYGridByIndex(yIndex);
             source.setPosition(x, y, xIndex, yIndex);
             source.actor.show();
 
-            if (this._items[xIndex] == undefined) {
-                this._items[xIndex] = {};
-            }
-
-            this._items[xIndex][yIndex] = source;
+            this._items.push(source);
         }
 
-        this._dragBox.destroy();
-        this._dragBox = null;
+        if (this._dragBox != null) {
+            this._dragBox.destroy();
+            this._dragBox = null;
+        }
+
         if (this._bottomPaddingBox != null) {
             this._bottomPaddingBox.destroy();
             this._bottomPaddingBox = null;
@@ -405,21 +410,15 @@ var Launcher = new Lang.Class({
     },
 
     _moveHoverDragItem: function (xIndex, yIndex) {
-        if (this._items[xIndex] != undefined && this._items[xIndex][yIndex] != undefined) {
-            let item = this._items[xIndex][yIndex];
+        let item = this._getItem(xIndex, yIndex);
+        if (item != null && !this._isMovedItem(xIndex, yIndex)) {
+            let newYIndex = yIndex + 1;
+            this._moveHoverDragItem(xIndex, newYIndex);
 
-            if (item && !this._isMovedItem(xIndex, yIndex)) {
-                let newYIndex = yIndex + 1;
-                this._moveHoverDragItem(xIndex, newYIndex);
-
-                let x = this._getXGridByIndex(xIndex);
-                let y = this._getYGridByIndex(newYIndex);
-                item.setPosition(x, y, xIndex, newYIndex);
-                this._dragMovedItems.push({x: xIndex, y: newYIndex});
-
-                this._items[xIndex][newYIndex] = item;
-                delete this._items[xIndex][yIndex];
-            }
+            let x = this._getXGridByIndex(xIndex);
+            let y = this._getYGridByIndex(newYIndex);
+            item.setPosition(x, y, xIndex, newYIndex);
+            this._dragMovedItems.push({x: xIndex, y: newYIndex});
         }
     },
 
@@ -434,7 +433,7 @@ var Launcher = new Lang.Class({
         let boxHeight = scrollAllocBox.y2 - scrollAllocBox.y1;
         let maxScroll = contentHeight - boxHeight;
 
-        let size = this._getGridSize();
+        let size = this._getBoxSize();
 
         let scroll = currentScroll;
 
@@ -457,18 +456,15 @@ var Launcher = new Lang.Class({
             let movedItem = this._dragMovedItems[index];
 
             let oldYIndex = movedItem.y - 1;
-            if ((this._hoverPosition.x != movedItem.x || this._hoverPosition.y != oldYIndex)
-                && (this._items[movedItem.x] == undefined || this._items[movedItem.x][oldYIndex] == undefined)) {
-                let item = this._items[movedItem.x][movedItem.y];
+
+            let oldPositionItem = this._getItem(movedItem.x, oldYIndex);
+            if ((this._hoverPosition.x != movedItem.x || this._hoverPosition.y != oldYIndex) && oldPositionItem == null) {
+                let item = this._getItem(movedItem.x, movedItem.y);
                 let x = this._getXGridByIndex(movedItem.x);
                 let y = this._getYGridByIndex(oldYIndex);
                 item.setPosition(x, y, movedItem.x, oldYIndex);
 
-                delete this._items[movedItem.x][movedItem.y];
-                this._items[movedItem.x][oldYIndex] = item;
-
                 this._dragMovedItems.splice(index, 1);
-
                 this._restoreHoverDragItem();
                 break;
             }
@@ -477,12 +473,10 @@ var Launcher = new Lang.Class({
 
     _getLastYIndex: function () {
         let lastYIndex = 0;
-        for (let xIndex in this._items) {
-            for (let yIndex in this._items[xIndex]) {
-                yIndex = parseInt(yIndex);
-                if (yIndex > lastYIndex) {
-                    lastYIndex = yIndex;
-                }
+        for (let i = 0;i < this._items.length;i++) {
+            let yIndex = parseInt(this._items[i].yIndex);
+            if (yIndex > lastYIndex) {
+                lastYIndex = yIndex;
             }
         }
 
@@ -490,23 +484,20 @@ var Launcher = new Lang.Class({
     },
 
     _getLastXIndex: function () {
+
         let lastXIndex = 0;
-        for (let xIndex in this._items) {
-            xIndex = parseInt(xIndex);
+        for (let i = 0;i < this._items.length;i++) {
+            let xIndex = parseInt(this._items[i].xIndex);
             if (xIndex > lastXIndex) {
                 lastXIndex = xIndex;
             }
         }
+
         return lastXIndex;
     },
 
-    _deleteItem: function (item) {
-        delete this._items[item.xIndex][item.yIndex];
-
-        if (!this._items[item.xIndex].length) {
-            delete this._items[item.xIndex];
-        }
-
+    _onDeleteItem: function (item) {
+        this._deleteItem(item.xIndex, item.yIndex);
         this._saveData();
     },
 
@@ -516,16 +507,14 @@ var Launcher = new Lang.Class({
      */
     _saveData: function () {
         let data = {};
-        for (let xIndex in this._items) {
-            for (let yIndex in this._items[xIndex]) {
-                let launcherItem = this._items[xIndex][yIndex];
-                if (launcherItem) {
-                    data[xIndex + '-' + yIndex] = launcherItem.app.get_id();
-                }
-            }
+
+        for (let i = 0;i < this._items.length;i++) {
+            let item = this._items[i];
+            data[item.xIndex + '-' + item.yIndex] = item.app.get_id();
         }
 
         let dataString = JSON.stringify(data);
+        log('save data ' + dataString);
         this._settings.set_string('launcher-data', dataString);
     },
 
@@ -544,60 +533,78 @@ var Launcher = new Lang.Class({
      */
     _updateItemsIconSize: function () {
 
-        let iconSize = this._getIconSize();
+        this._iconSize = this._settings.get_double('launcher-icon-size');
 
-        for (let xIndex in this._items) {
-            for (let yIndex in this._items[xIndex]) {
-                let launcherItem = this._items[xIndex][yIndex];
-                if (launcherItem) {
-                    launcherItem.updateIconSize(iconSize);
-                }
+
+        for (let i = 0;i < this._items.length;i++) {
+            this._items[i].updateIconSize(this._iconSize);
+        }
+
+        let boxSize = Math.max(this._iconSize, this._settings.get_double('launcher-box-size'));
+
+        if (boxSize != this._getBoxSize()) {
+            this._updateItemsSize();
+        }
+    },
+
+    _updateItemsSize: function () {
+        this._boxSize = Math.max(this._getIconSize(), this._settings.get_double('launcher-box-size'));
+
+        this._grid.style = 'min-width: ' + this._boxSize + 'px';
+
+        for (let i = 0;i < this._items.length;i++) {
+            let item = this._items[i];
+            if (item) {
+                item.updateSize(this._boxSize);
+                let x = this._getXGridByIndex(item.xIndex);
+                let y = this._getYGridByIndex(item.yIndex);
+                item.setPosition(x, y, item.xIndex, item.yIndex);
             }
         }
     },
 
     _getXGrid: function(x) {
-        let xGrid = (x - (x % this._getGridSize()))
+        let xGrid = (x - (x % this._getBoxSize()))
 
         if (xGrid != 0) {
-            xGrid = xGrid + (COL_SPACING * (xGrid / this._getGridSize()));
+            xGrid = xGrid + (COL_SPACING * (xGrid / this._getBoxSize()));
         }
         return xGrid;
     },
 
     _getYGrid: function(y) {
-        let yGrid = (y - (y % this._getGridSize()));
+        let yGrid = (y - (y % this._getBoxSize()));
 
         if (yGrid != 0) {
-            yGrid = yGrid + (COL_SPACING * (yGrid / this._getGridSize()));
+            yGrid = yGrid + (COL_SPACING * (yGrid / this._getBoxSize()));
         }
 
         return yGrid;
     },
 
     _getXIndex: function (x) {
-        return (x / (this._getGridSize() + COL_SPACING));
+        return (x / (this._getBoxSize() + COL_SPACING));
     },
     _getYIndex: function (y) {
 
 
-        return (y / (this._getGridSize() + COL_SPACING));
+        return (y / (this._getBoxSize() + COL_SPACING));
     },
 
     _getXGridByIndex: function(xIndex) {
-        return (xIndex * (this._getGridSize() + COL_SPACING));
+        return (xIndex * (this._getBoxSize() + COL_SPACING));
     },
 
     _getYGridByIndex: function(yIndex) {
-        return (yIndex * (this._getGridSize() + COL_SPACING));
+        return (yIndex * (this._getBoxSize() + COL_SPACING));
     },
 
-    _getGridSize: function () {
-        return this._getIconSize() + (PADDING * 2);
+    _getBoxSize: function () {
+        return this._boxSize;
     },
 
     _getIconSize: function () {
-        return this._iconeSize;
+        return this._iconSize;
     }
 });
 
