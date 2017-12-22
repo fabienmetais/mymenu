@@ -1,10 +1,11 @@
 .mymenu .main-box{
-    max-height: 560px;
+    height: 520px;
 }
 
-.launcher-grid,
-.launcher-area {
-    min-width: 10rem;
+.launcher-grid {
+}
+
+.launcher-box {
 }
 
 .launcher-area {

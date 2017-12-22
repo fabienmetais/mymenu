@@ -123,7 +123,8 @@ var AppsMenu = new Lang.Class({
 
         this.leftBox.add(this.appsScrollBox, {
             expand: true,
-            x_fill: true, y_fill: true,
+            x_fill: true,
+            y_fill: true,
             y_align: Clutter.ActorAlign.START
         });
 
@@ -139,26 +140,14 @@ var AppsMenu = new Lang.Class({
      * @private
      */
     _createLauncher: function () {
-        this.launcherBox = new St.BoxLayout({
-            vertical: true,
-            style_class: 'launcher-box'
-        });
-
         this.launcher = new Launcher.Launcher(this._settings, this);
 
-        this.launcherBox.add(this.launcher.actor, {
+        this._mainBox.add(this.launcher.actor, {
             expand: true,
             x_fill: true,
             y_fill: true,
             y_align: Clutter.ActorAlign.START
         });
-
-        this._mainBox.add(this.launcherBox, {
-            expand: true,
-            x_fill: true,
-            y_fill: true
-        });
-
     },
 
     _toggleLauncher: function () {
